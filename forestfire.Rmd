@@ -1,0 +1,848 @@
+---
+title: "capstone"
+author: "Brendan Pham"
+date: "2023-10-30"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r,include = FALSE}
+library(readr)
+library(ggplot2)
+library(dplyr)
+library(caret)
+library(pdp)
+library(neuralnet)
+library(randomForest)
+library(corrplot)
+library(knitr)
+forestfires <- read_csv("forestfires.csv")
+```
+
+## Data set
+
+```{r}
+# Summary of the dataset
+summary(forestfires)
+str(forestfires)
+head(forestfires)
+# Visualize the d->istribution of the target variable
+# Log transformation (adding 1 to handle zero values)
+
+
+# Check feature correlations
+correlation_matrix <- cor(forestfires[, c("FFMC", "DMC", "DC", "ISI", "temp", "RH", "wind", "rain")])
+corrplot(correlation_matrix)
+
+
+ggplot(forestfires, aes(x = month, y = area)) +
+  geom_boxplot(fill = "lightblue") +
+  labs(title = "Boxplot of Burned Area", x = "", y = "Burned Area")
+```
+
+```{r}
+
+ggplot(forestfires,aes(x = area)) +geom_histogram(fill="#69b3a2", color="#e9ecef", alpha=0.8, bins = 30) +
+  labs(title = "Distribution of Burned Area", x = "Burned Area", y = "Frequency")
+
+ggplot(forestfires,aes(x = log(area+1))) + geom_histogram(fill="#69b3a2", color="#e9ecef", alpha=0.8, bins = 30) +
+    labs(title = "Distribution of log(Burned Area + 1)", x = "Log(Burned Area+1)", y = "Frequency")
+```
+
+```{r}
+# Check feature correlations
+correlation_matrix <- cor(forestfires[, c("FFMC", "DMC", "DC", "ISI", "temp", "RH", "wind", "rain")])
+corrplot(correlation_matrix)
+
+
+ggplot(forestfires, aes(x = month, y = area)) +
+  geom_boxplot(fill = "lightblue") +
+  labs(title = "Boxplot of Burned Area", x = "", y = "Burned Area")
+```
+
+```{r}
+
+forestfires$month <- factor(forestfires$month, levels = 
+  c("jan","feb","mar", 
+  "apr", "may", "jun", "jul",  "aug",
+  "sep", "oct", "nov", "dec"))
+forestfires$day <- factor(forestfires$day, levels = 
+  c("mon","tue","wed","thu","fri","sat","sun"))
+
+forestfires$season = 0
+for (i in 1:length(forestfires$month)) {
+  if (forestfires$month[i] %in% c("dec", "jan", "feb")) {
+     forestfires$season[i] = "winter"  
+ } else if (forestfires$month[i] %in% c("mar", "apr", "may")) {
+     forestfires$season[i] = "spring" 
+  }else if (forestfires$month[i] %in% c("jun", "jul", "aug")) {
+     forestfires$season[i] = "summer"   
+  }else  forestfires$season[i] = "autumn"
+}
+
+forestfires$season = as.factor(forestfires$season)
+
+
+
+# Create a heatmap using ggplot2
+ggplot(forestfires, aes(x = day, y = month, fill = area)) +
+  geom_tile() +
+  scale_fill_gradient(low = "white", high = "red") +
+  labs(title = "Fire Area Burn by Month and Day", x = "Day of the Month", y = "Month") +
+  theme_minimal()
+```
+
+## Bivariate Analysis
+
+```{r}
+ggplot(forestfires, aes(x = temp, y = log(area))) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +  # Add a linear regression line
+  labs(title = "Log Area vs Temperature",
+       x = "Temperature",
+       y = "Log Area") +
+  scale_y_log10()
+
+ggplot(forestfires, aes(x = rain, y = log(area))) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +  # Add a linear regression line
+  labs(title = "Log Area vs Temperature",
+       x = "rain",
+       y = "Log Area") +
+  scale_y_log10()
+
+ggplot(forestfires, aes(x = rain, y = log(area))) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +  # Add a linear regression line
+  labs(title = "Log Area vs Temperature",
+       x = "rain",
+       y = "Log Area") +
+  scale_y_log10()
+
+
+ggplot(forestfires, aes(x = wind, y = log(area))) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +  # Add a linear regression line
+  labs(title = "Log Area vs wind",
+       x = "wind",
+       y = "Log Area") +
+  scale_y_log10()
+
+
+ggplot(forestfires, aes(x = FFMC, y = log(area))) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +  # Add a linear regression line
+  labs(title = "Log Area vs FFMC",
+       x = "FFMC",
+       y = "Log Area") +
+  scale_y_log10()
+
+ggplot(forestfires, aes(x = DMC, y = log(area))) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +  # Add a linear regression line
+  labs(title = "Log Area vs DMC",
+       x = "DMC",
+       y = "Log Area") +
+  scale_y_log10()
+
+ggplot(forestfires, aes(x = DC, y = log(area))) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +  # Add a linear regression line
+  labs(title = "Log Area vs DC",
+       x = "DC",
+       y = "Log Area") +
+  scale_y_log10()
+
+ggplot(forestfires, aes(x = ISI, y = log(area))) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +  # Add a linear regression line
+  labs(title = "Log Area vs ISI",
+       x = "ISI",
+       y = "Log Area") +
+  scale_y_log10()
+
+ggplot(forestfires, aes(x = RH, y = log(area))) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +  # Add a linear regression line
+  labs(title = "Log Area vs RH",
+       x = "RH",
+       y = "Log Area") +
+  scale_y_log10()
+
+```
+
+```{r}
+ggplot(forestfires, aes(x = FFMC, y = log(area))) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +  # Add a linear regression line
+  labs(title = "Log Area vs wind",
+       x = "FFMC",
+       y = "Log Area") +
+  scale_y_log10()
+```
+
+```{r}
+ggplot(data = forestfires, aes(x = RH, y = area)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
+  labs(
+    title = "Scatterplot of Humidity and Forest Fire Area",
+    x = "Humidity ",
+    y = "Forest Fire Area"
+  ) +
+  theme_minimal()
+```
+
+## Indexing Dataset
+
+```{r}
+library(caret)
+forestfires$day <-as.numeric(forestfires$day)
+forestfires$month <-as.numeric(forestfires$month)
+forestfires$season <-as.numeric(forestfires$season)
+summary(forestfires)
+idx <- createDataPartition(forestfires$area, p = 0.80, list = FALSE)
+
+forest_train <- forestfires[idx,]
+forest_test <- forestfires[-idx,]
+```
+
+```{r}
+
+ggplot(data = forestfires, aes(x=X,y=Y, size = area), color = "blue") +
+  geom_point() + labs(title = "Burnt Area in Different Regions of the Park", x = "X-coordinates", y = "Y-coordinates")
+
+```
+
+$$
+N_h = \frac{N_s}{\alpha * (N_i + N_o)}
+$$\
+\
+**Rule One:** As the complexity in the relationship between the input data and the desired output increases, the number of the processing elements in the hidden layer should also increase.
+
+**Rule Two:** If the process being modeled is separable into multiple stages, then additional hidden layer(s) may be required. If the process is not separable into stages, then additional layers may simply enable memorization of the training set, and not a true general solution effective with other data.
+
+## Neural Network
+
+```{r}
+
+
+start.time <- Sys.time()
+
+nn_model <- neuralnet(
+  formula = log(area+1)~.-month-X-Y,
+  data = forest_train,
+  hidden = c(5,2),
+  linear.output =  TRUE,
+  stepmax=2e05,
+  learningrate = 0.01
+)
+end.time <- Sys.time()
+```
+
+```{r}
+y_pred <- predict(nn_model, newdata = forest_test)
+
+# Calculate Mean Squared Error (MSE)
+rmse <- sqrt(mean((log(forest_test$area +1) - y_pred)^2))
+
+# Calculate R-squared (variance explained)
+y_mean <- mean(log(forest_test$area +1))
+tss <- sum((log(forest_test$area +1) - y_mean)^2)
+rss <- sum((log(forest_test$area +1) - y_pred)^2)
+r_squared <- 1 - (rss / tss)
+mae_value <- MAE(y_pred, forest_test$area)
+
+
+# Print metrics
+print(paste("Mean Absolute Error (MAE):", mae_value))
+print(paste("Root Mean Squared Error (MSE):", rmse))
+print(paste("R-squared (variance explained):", r_squared))
+
+nn_metrics <- data.frame(
+  MAE = round(mae_value,4),
+  RMSE = round(rmse,4),
+  PercentVarianceExplained = round(r_squared,3)
+)
+ kable(table(nn_metrics), caption = "Neural Network")
+```
+
+```{r}
+# set.seed(3645121)
+# 
+# start.time <- Sys.time()
+# 
+# nn_model1 <- neuralnet(
+#   formula = log(area+1)~.-month,
+#   data = forest_train,
+#   hidden = c(5,2),
+#   linear.output =  TRUE,
+#   stepmax=2e05,
+#   learningrate = 0.01
+# )
+# end.time <- Sys.time()
+```
+
+```{r}
+# y_pred <- predict(nn_model1, newdata = forest_test)
+# 
+# # Calculate Mean Squared Error (MSE)
+# rmse <- sqrt(mean((log(forest_test$area +1) - y_pred)^2))
+# 
+# # Calculate R-squared (variance explained)
+# y_mean <- mean(log(forest_test$area +1))
+# tss <- sum((log(forest_test$area +1) - y_mean)^2)
+# rss <- sum((log(forest_test$area +1) - y_pred)^2)
+# r_squared <- 1 - (rss / tss)
+# mae_value <- MAE(y_pred, forest_test$area)
+# 
+# 
+# # Print metrics
+# print(paste("Mean Absolute Error (MAE):", mae_value))
+# print(paste("Root Mean Squared Error (MSE):", rmse))
+# print(paste("R-squared (variance explained):", r_squared))
+# 
+# nn_metrics <- data.frame(
+#   MAE = round(mae_value,4),
+#   RMSE = round(rmse,4),
+#   PercentVarianceExplained = round(r_squared,3)
+# )
+#  kable(table(nn_metrics), caption = "Neural Network")
+```
+
+```{r}
+# set.seed(42831674)
+# 
+# start.time <- Sys.time()
+# 
+# nn_model2 <- neuralnet(
+#   formula = log(area+1)~.-month-X-Y,
+#   data = forest_train,
+#   hidden = c(5,3),
+#   linear.output =  TRUE,
+#   stepmax=2e05,
+#   learningrate = 0.01
+# )
+# end.time <- Sys.time()
+```
+
+```{r}
+#comment because its not reporducable
+
+# plot(nn_model2)
+# y_pred <- predict(nn_model2, newdata = forest_test)
+# 
+# # Calculate Mean Squared Error (MSE)
+# rmse <- sqrt(mean((log(forest_test$area +1) - y_pred)^2))
+# 
+# # Calculate R-squared (variance explained)
+# y_mean <- mean(log(forest_test$area +1))
+# tss <- sum((log(forest_test$area +1) - y_mean)^2)
+# rss <- sum((log(forest_test$area +1) - y_pred)^2)
+# r_squared <- 1 - (rss / tss)
+# mae_value <- MAE(y_pred, forest_test$area)
+# 
+# 
+# # Print metrics
+# print(paste("Mean Absolute Error (MAE):", mae_value))
+# print(paste("Root Mean Squared Error (MSE):", rmse))
+# print(paste("R-squared (variance explained):", r_squared))
+# 
+# nn_metrics <- data.frame(
+#   MAE = round(mae_value,4),
+#   RMSE = round(rmse,4),
+#   PercentVarianceExplained = round(r_squared,3)
+# )
+#  kable(table(nn_metrics), caption = "Neural Network")
+```
+
+```{r}
+start.time <- Sys.time()
+
+nn_model3 <- neuralnet(
+  formula = log(area+1)~FFMC + DMC + DC + ISI + season,
+  data = forest_train,
+  hidden = c(5,2),
+  linear.output =  TRUE,
+  stepmax=2e05,
+  learningrate = 0.01
+)
+end.time <- Sys.time()
+```
+
+```{r}
+plot(nn_model3)
+y_pred <- predict(nn_model3, newdata = forest_test)
+
+# Calculate Mean Squared Error (MSE)
+rmse <- sqrt(mean((log(forest_test$area +1) - y_pred)^2))
+
+# Calculate R-squared (variance explained)
+y_mean <- mean(log(forest_test$area +1))
+tss <- sum((log(forest_test$area +1) - y_mean)^2)
+rss <- sum((log(forest_test$area +1) - y_pred)^2)
+r_squared <- 1 - (rss / tss)
+mae_value <- MAE(y_pred, forest_test$area)
+
+
+# Print metrics
+print(paste("Mean Absolute Error (MAE):", mae_value))
+print(paste("Root Mean Squared Error (MSE):", rmse))
+print(paste("R-squared (variance explained):", r_squared))
+
+nn_metrics <- data.frame(
+  MAE = round(mae_value,4),
+  RMSE = round(rmse,4),
+  PercentVarianceExplained = round(r_squared,3)
+)
+ kable(table(nn_metrics), caption = "Neural Network")
+```
+
+```{r}
+# set.seed(42831674)
+# 
+# start.time <- Sys.time()
+# 
+# nn_model4 <- neuralnet(
+#   formula = log(area+1)~season + temp + RH + wind,
+#   data = forest_train,
+#   hidden = c(5,3),
+#   linear.output =  TRUE,
+#   stepmax=2e05,
+#   learningrate = 0.01
+# )
+# end.time <- Sys.time()
+```
+
+```{r}
+# y_pred <- predict(nn_model4, newdata = forest_test)
+# 
+# # Calculate Mean Squared Error (MSE)
+# rmse <- sqrt(mean((log(forest_test$area +1) - y_pred)^2))
+# 
+# # Calculate R-squared (variance explained)
+# y_mean <- mean(log(forest_test$area +1))
+# tss <- sum((log(forest_test$area +1) - y_mean)^2)
+# rss <- sum((log(forest_test$area +1) - y_pred)^2)
+# r_squared <- 1 - (rss / tss)
+# mae_value <- MAE(y_pred, forest_test$area)
+# 
+# 
+# # Print metrics
+# print(paste("Mean Absolute Error (MAE):", mae_value))
+# print(paste("Root Mean Squared Error (MSE):", rmse))
+# print(paste("R-squared (variance explained):", r_squared))
+# 
+# nn_metrics <- data.frame(
+#   MAE = round(mae_value,4),
+#   RMSE = round(rmse,4),
+#   PercentVarianceExplained = round(r_squared,3)
+# )
+#  kable(table(nn_metrics), caption = "Neural Network")
+```
+
+```{r}
+time.taken <- round(end.time - start.time,2)
+time.taken
+```
+
+## Random Forest
+
+```{r}
+set.seed(4281001)
+
+features <- c("X","Y","FFMC", "DMC", "DC", "ISI", "temp", "RH", "wind", "rain")
+target <- "area"
+
+
+# Train the Random Forest model
+rf_model <- randomForest(
+  formula = as.formula(paste(target, "~", paste(features, collapse = "+"))),
+  data = forest_train
+)
+
+ctrl <- trainControl(method = "repeatedcv", number = 5, repeats = 5)
+
+grid_mtry = data.frame(mtry = seq(1,12))
+
+
+rf_cv <- train(area~.,
+               data = forest_train,
+               method = "rf",
+               trControl = ctrl,
+               tunegrid = grid_mtry,
+               importance = TRUE)
+rf_cv
+
+# Make predictions on the test set
+predictions <- predict(rf_model, newdata = forest_test)
+predictions
+```
+
+**Random Forrest**
+
+```{r}
+
+set.seed(4281001)
+
+ctrl <- trainControl(method = "repeatedcv", number = 5, repeats = 5)
+
+grid_mtry = data.frame(mtry = seq(1,length(colnames(forest_train))-1))
+
+rf_cv <- train(form = log(area+1)~.-season-X-Y-month-rain,
+               data = forest_train,
+               method = "rf",
+               trControl = ctrl,
+               tunegrid = grid_mtry,
+               importance = TRUE,
+               ntree = 500)
+rf_cv
+```
+
+```{r}
+plot(rf_cv)
+
+set.seed(51564561)
+start.time <- Sys.time()
+
+
+mod_rf <- randomForest(log(area+1)~.-X-Y-month-rain,data = forest_train, mtry = 2, ntree =500)
+mod_rf
+
+end.time <- Sys.time()
+time.taken <- round(end.time - start.time,2)
+time.taken
+
+y_pred <- predict(mod_rf, newdata = forest_test)
+
+# Calculate Mean Squared Error (MSE)
+rmse <- sqrt(mean((log(forest_test$area +1) - y_pred)^2))
+
+# Calculate R-squared (variance explained)
+y_mean <- mean(log(forest_test$area +1))
+tss <- sum((log(forest_test$area +1) - y_mean)^2)
+rss <- sum((log(forest_test$area +1) - y_pred)^2)
+r_squared <- 1 - (rss / tss)
+mae_value <- MAE(y_pred, forest_test$area)
+
+
+print(paste("Mean Absolute Error (MAE):", mae_value))
+print(paste("Root Mean Squared Error (MSE):", rmse))
+print(paste("R-squared (variance explained):", r_squared))
+
+nn_metrics <- data.frame(
+  MAE = round(mae_value,4),
+  RMSE = round(rmse,4),
+  PercentVarianceExplained = round(r_squared,3)
+)
+ kable(table(nn_metrics), caption = "Random Forest")
+```
+
+```{r}
+set.seed(4821)
+mod_rf <- randomForest(log(area+1)~FFMC + DMC + DC + ISI + season,data = forest_train, mtry = 2, ntree =500)
+
+mod_rf
+
+y_pred <- predict(mod_rf, newdata = forest_test)
+
+# Calculate Mean Squared Error (MSE)
+rmse <- sqrt(mean((log(forest_test$area +1) - y_pred)^2))
+
+# Calculate R-squared (variance explained)
+y_mean <- mean(log(forest_test$area +1))
+tss <- sum((log(forest_test$area +1) - y_mean)^2)
+rss <- sum((log(forest_test$area +1) - y_pred)^2)
+r_squared <- 1 - (rss / tss)
+mae_value <- MAE(y_pred, forest_test$area)
+
+
+# Print metrics
+print(paste("Mean Absolute Error (MAE):", mae_value))
+print(paste("Root Mean Squared Error (MSE):", rmse))
+print(paste("R-squared (variance explained):", r_squared))
+
+nn_metrics <- data.frame(
+  MAE = round(mae_value,4),
+  RMSE = round(rmse,4),
+  PercentVarianceExplained = round(r_squared,3)
+)
+ kable(table(nn_metrics), caption = "Neural Network")
+```
+
+```{r}
+set.seed(4821)
+mod_rf <- randomForest(log(area+1)~season + temp +RH+wind,data = forest_train, mtry = 2, ntree =500)
+
+mod_rf
+
+y_pred <- predict(mod_rf, newdata = forest_test)
+
+# Calculate Mean Squared Error (MSE)
+rmse <- sqrt(mean((log(forest_test$area +1) - y_pred)^2))
+
+# Calculate R-squared (variance explained)
+y_mean <- mean(log(forest_test$area +1))
+tss <- sum((log(forest_test$area +1) - y_mean)^2)
+rss <- sum((log(forest_test$area +1) - y_pred)^2)
+r_squared <- 1 - (rss / tss)
+mae_value <- MAE(y_pred, forest_test$area)
+
+
+# Print metrics
+print(paste("Mean Absolute Error (MAE):", mae_value))
+print(paste("Root Mean Squared Error (MSE):", rmse))
+print(paste("R-squared (variance explained):", r_squared))
+
+nn_metrics <- data.frame(
+  MAE = round(mae_value,4),
+  RMSE = round(rmse,4),
+  PercentVarianceExplained = round(r_squared,3)
+)
+ kable(table(nn_metrics), caption = "RF: Temporal")
+```
+
+## Feature Importance
+
+```{r}
+features <- c("X","Y","FFMC", "DMC", "DC", "ISI", "temp", "RH", "wind", "rain")
+features_t = c("temp", "RH", "wind", "rain")
+features_m = c("FFMC", "DMC", "DC", "ISI")
+features_misc = c("day","month","X","Y")
+
+rf_model <- randomForest(log(area+1) ~.-season, data = forest_train, mtry = 2)
+
+
+importance_overall <- data.frame(
+  Feature = rownames(rf_model$importance),
+  Importance = rf_model$importance
+)
+
+importance_overall
+# Get all feature names
+all_features <- colnames(forest_train)
+
+# Subset feature names for the specified group
+features_t <- intersect(features_t, all_features)
+features_m <- intersect(features_m, all_features)
+features_misc <- intersect(features_misc,all_features)
+
+# Extract feature importance for the specified group of features
+importance <- rf_model$importance[which(rownames(rf_model$importance) %in% features_t), , drop = FALSE]
+
+# Create a data frame for plotting
+importance1_df <- data.frame(
+  Features = features_t,
+  Importance = importance
+)
+
+# Extract feature importance for the specified group of features
+importance <- rf_model$importance[which(rownames(rf_model$importance) %in% features_m), , drop = FALSE]
+
+importance2_df <- data.frame(
+  Features = features_m,
+  Importance = importance
+)
+
+# Extract feature importance for the specified group of features
+importance <- rf_model$importance[which(rownames(rf_model$importance) %in% features_misc), , drop = FALSE]
+
+importance3_df <- data.frame(
+  Features = features_misc,
+  Importance = importance
+)
+
+
+```
+
+```{r}
+ggplot(importance_overall, aes(y = reorder(Feature, IncNodePurity),x = IncNodePurity, fill =IncNodePurity)) +
+  geom_bar(stat = "identity", color = "black") +
+  labs(title = "Feature Importance Overall",
+       x = "IncNodePurity",
+       y = "Feature") +
+  theme_minimal()
+
+ggplot(importance1_df, aes(y = reorder(Features, IncNodePurity),x = IncNodePurity, fill =IncNodePurity)) +
+  geom_bar(stat = "identity", color = "black") +
+  labs(title = "Feature Importance Temporal",
+       x = "IncNodePurity",
+       y = "Feature") +
+  theme_minimal()
+
+ggplot(importance2_df, aes(y = reorder(Features, IncNodePurity),x = IncNodePurity, fill =IncNodePurity)) +
+  geom_bar(stat = "identity", color = "black") +
+  labs(title = "Feature Importance Meteorological",
+       x = "IncNodePurity",
+       y = "Feature") +
+  theme_minimal()
+
+ggplot(importance3_df, aes(y = reorder(Features, IncNodePurity),x = IncNodePurity, fill =IncNodePurity)) +
+  geom_bar(stat = "identity", color = "black") +
+  labs(title = "Feature Importance Misc",
+       x = "IncNodePurity",
+       y = "Feature") +
+  theme_minimal()
+```
+
+## Simulation FWI vs TEMP
+
+```{r}
+all_data <- rbind(
+  data.frame(Feature = "Temporal", Value = importance1_df$IncNodePurity, Group = "Temporal"),
+  data.frame(Feature = "Meteorological", Value = importance2_df$IncNodePurity, Group = "Meteorological"),
+  data.frame(Feature = "MISC", Value = importance3_df$IncNodePurity, Group = "MISC")
+)
+all_data$Group <- factor(all_data$Group, levels = c("Temporal", "Meteorological", "MISC"))
+
+total_data <- all_data %>%
+  group_by(Group, Feature) %>%
+  summarise(Total = sum(Value))
+
+ggplot(total_data, aes(x = reorder(Feature,-Total), y = Total, fill = Group)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Total Comparison of Features Across Groups", x = "Features", y = "Total IncNodePurity") +
+  scale_fill_manual(values = c("Temporal" = "green4", "Meteorological" = "yellowgreen", "MISC" = "blue")) +
+  theme_minimal() +
+  theme(legend.position = "top")
+
+
+ggplot(all_data, aes(x = reorder(Feature,-Value), y = Value, fill = Group)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Mean Comparison of Features Across Groups", x = "Features", y = "Mean IncNodePurity") +
+  scale_fill_manual(values = c("Temporal" = "green4", "Meteorological" = "yellowgreen", "MISC" = "blue")) +
+  theme_minimal() +
+  theme(legend.position = "top")
+```
+
+```{r}
+rf_model <- randomForest(area ~ FFMC + DMC + DC + ISI + temp + RH + wind + rain, data = forest_train)
+
+# Create PDPs for meteorological features
+pdp_FFMC <- partial(rf_model, pred.var = "FFMC", grid.resolution = 50)
+pdp_DMC <- partial(rf_model, pred.var = "DMC", grid.resolution = 50)
+pdp_DC <- partial(rf_model, pred.var = "DC", grid.resolution = 50)
+pdp_ISI <- partial(rf_model, pred.var = "ISI", grid.resolution = 50)
+
+# Create PDPs for temporal features
+pdp_temp <- partial(rf_model, pred.var = "temp", grid.resolution = 50)
+pdp_RH <- partial(rf_model, pred.var = "RH", grid.resolution = 50)
+pdp_WIND <- partial(rf_model, pred.var = "wind", grid.resolution = 50)
+pdp_rain <- partial(rf_model, pred.var = "rain", grid.resolution = 50)
+
+
+# Plot PDPs for meteorological features
+
+
+pdp_to_ggplot <- function(pdp, feature_name) {
+  ggplot(pdp, aes_string(x = feature_name, y = "yhat")) +
+    geom_line(color = "blue") +
+    labs(title = paste("Partial Dependence Plot for", feature_name))
+}
+
+
+
+
+# Plot PDPs for meteorological features
+(ggplot_FFMC <- pdp_to_ggplot(pdp_FFMC, "FFMC"))
+(ggplot_DMC <- pdp_to_ggplot(pdp_DMC, "DMC"))
+(ggplot_DC <- pdp_to_ggplot(pdp_DC , "DC"))
+(ggplot_ISI <- pdp_to_ggplot(pdp_ISI, "ISI"))
+
+# Plot PDPs for temporal features
+(ggplot_temp <- pdp_to_ggplot(pdp_temp, "temp"))
+(ggplot_RH <- pdp_to_ggplot(pdp_RH, "RH"))
+(ggplot_WIND <- pdp_to_ggplot(pdp_WIND, "wind"))
+(ggplot_rain <- pdp_to_ggplot(pdp_rain, "rain"))
+
+```
+
+## Simulation
+
+Scenario 1
+
+```{r}
+summary(forestfires)
+# higher DMC DC ISI FFMC, same wind rh temp 
+n <- 1000
+simulated_data <- data.frame(
+  season = sample(c("winter", "spring", "summer", "fall"), n, replace = TRUE),
+  FFMC = runif(n, min = 70, max = 90),
+  DMC = runif(n, min = 100, max = 400),
+  DC = runif(n, min = 300, max = 900),
+  ISI = runif(n, min = 10, max = 70),
+  temp = runif(n, min = 20, max = 35),
+  RH = runif(n, min = 15, max = 100),
+  wind = runif(n, min = 0, max = 10),
+  rain = runif(n, min = 0, max = 5),
+  X = sample(1:7, n, replace = TRUE),
+  Y = sample(1:7, n, replace = TRUE),
+  day = sample(1:7, n, replace = TRUE),
+  month = sample(1:7, n, replace = TRUE),
+  rain = sample(1:7, n, replace = TRUE),
+  area = FALSE
+)
+
+
+simulated_data$temperature_F[simulated_data$season == "winter"] <- runif(sum(simulated_data$season == "winter"), 2, 15)
+simulated_data$temperature_F[simulated_data$season == "spring"] <- runif(sum(simulated_data$season == "spring"), 2.20, 33)
+simulated_data$temperature_F[simulated_data$season == "summer"] <- runif(sum(simulated_data$season == "summer"), 15.50, 33)
+simulated_data$temperature_F[simulated_data$season == "fall"] <- runif(sum(simulated_data$season == "fall"), 15.50, 22.80)
+
+# Convert temperatures from Fahrenheit to Celsius
+simulated_data$temp <- (simulated_data$temperature_F)
+
+rf_model2 <- randomForest(log(area+1) ~.-X-Y-month-rain, data = forest_train, mtry = 2)
+
+# Predict area burned for the simulated data
+simulated_data$area <-exp(predict(rf_model2, newdata = simulated_data)-1)
+
+simulated_data$season <- factor(simulated_data$season, levels = c("winter", "spring", "summer", "fall"))
+
+ggplot(simulated_data, aes(x = season,area,fill = season)) +geom_boxplot() + labs(title = "Colorodo Temperature Higher FWI") +theme_minimal()
+```
+
+```{r}
+summary(forestfires)
+# higher DMC DC ISI FFMC, same wind rh temp 
+n < - 1000
+simulated_data <- data.frame(
+  season = sample(c("winter", "spring", "summer", "fall"), n, replace = TRUE),
+  FFMC = runif(n, min = 50, max = 70),
+  DMC = runif(n, min = 50, max = 300),
+  DC = runif(n, min = 100, max = 600),
+  ISI = runif(n, min = 10, max = 50),
+  temp = runif(n, min = 20, max = 35),
+  RH = runif(n, min = 15, max = 100),
+  wind = runif(n, min = 0, max = 10),
+  rain = runif(n, min = 0, max = 5),
+  X = sample(1:7, n, replace = TRUE),
+  Y = sample(1:7, n, replace = TRUE),
+  day = sample(1:7, n, replace = TRUE),
+  month = sample(1:7, n, replace = TRUE),
+  rain = sample(1:7, n, replace = TRUE),
+  area = FALSE
+)
+
+simulated_data$temperature_F[simulated_data$season == "winter"] <- runif(sum(simulated_data$season == "winter"), 2, 15)
+simulated_data$temperature_F[simulated_data$season == "spring"] <- runif(sum(simulated_data$season == "spring"), 2.20, 33)
+simulated_data$temperature_F[simulated_data$season == "summer"] <- runif(sum(simulated_data$season == "summer"), 15.50, 33)
+simulated_data$temperature_F[simulated_data$season == "fall"] <- runif(sum(simulated_data$season == "fall"), 15.50, 22.80)
+
+# Convert temperatures from Fahrenheit to Celsius
+simulated_data$temp <- (simulated_data$temperature_F)
+
+rf_model2 <- randomForest(log(area+1) ~.-X-Y-month-rain, data = forest_train, mtry = 2)
+
+# Predict area burned for the simulated data
+simulated_data$area <-exp(predict(rf_model2, newdata = simulated_data)-1)
+
+simulated_data$season <- factor(simulated_data$season, levels = c("winter", "spring", "summer", "fall"))
+
+ggplot(simulated_data, aes(x = season,area,fill = season)) +geom_boxplot() + labs(title = "Colorodo Temperature Lower FWI") +theme_minimal()
+```
