@@ -2,7 +2,7 @@
 
 Presententation: http://tinyurl.com/PredictiveForestFire
 
-## Utilized R to analyze data related to Forest Fires in Portugal Montesino Park
+## Utilized R to analyze data related to Forest Fires in Portugal Montesino Park and Create a ANN and RF model to Predict Area of Burn
 The dataset was obtained from the Center of Machine Learning Repository at the University of California Urvine
 https://archive.ics.uci.edu/dataset/162/forest+fires
 
