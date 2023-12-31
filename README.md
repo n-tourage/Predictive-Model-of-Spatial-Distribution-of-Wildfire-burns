@@ -6,7 +6,7 @@ Presententation: http://tinyurl.com/PredictiveForestFire
 The dataset was obtained from the Center of Machine Learning Repository at the University of California Urvine
 https://archive.ics.uci.edu/dataset/162/forest+fires
 
-##Dataset Description
+## Dataset Description
 
 Meteorological Features
 - Fine Fuel Moisture Code: Numeric rating of the moisture content of fine fuels
